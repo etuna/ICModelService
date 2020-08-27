@@ -1,0 +1,12 @@
+
+
+class HelloModel():
+    def __init__(self):
+        self.helloText1 = 'helloText1'
+        self.helloText2 = 'helloText2'
+
+    def getHelloText1(self):
+        return self.helloText1
+
+    def getHelloText2(self):
+        return self.helloText2
