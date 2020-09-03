@@ -510,174 +510,20 @@ class ModelHandler():
 
             comparison(df, params, missing_2, no_of_features, path, target_name, select_first_x, sets, scenario)
 
-            # %%
-
-    # verinin çekilmesi, verinin envanter formatında olması gerekiyor
-    df_features = pd.read_excel("IC_veri_envanteri_v26_140820.xlsx", sheet_name="features")
-    df_features.set_index("year_quarter", drop=True, inplace=True)
-
-    # Oluşturulan data explanation tabi çekilir
-    # bu excelde ind_name, sektör kolonları (çimento, lastik, enerji, sigorta_x) ve Lag olacak.
-    df_ind = pd.read_excel("IC_veri_envanteri_v26_140820.xlsx", sheet_name="envanter")
-
-    # Oluşturulan hedef verisi çekilir ve isimlendirme yapılır
-    # autoregressive yapmayacağız yalnızca perc4Q yu hedef olarak alıyoruz. Quarterı değişkenlerden çıkarıyoruz
-    target1 = pd.read_excel("IC_veri_envanteri_v26_140820.xlsx", sheet_name="targets")
-    target1.set_index("year_quarter", drop=True, inplace=True)
-
-    # gün ve sıcaklık verilerinin ham halinin normalize edilmesi ve ham verilerin bu şekilde güncellenmesi
-    collist1 = df_features.columns.tolist()
-    col_df = pd.DataFrame(data=collist1, columns=["name"])
-    col_df["ind_name"] = col_df["name"].apply(lambda x: x.split(" | ")[0])
-    col_df["lag_name"] = col_df["name"].apply(lambda x: x.split(" | ")[2])
-    test = ['CHDD_all',
-            'CHDD_enerjisa',
-            'Kar_örtülü_gün_DoğuAnadolu',
-            'Kar_örtülü_gün_Ege',
-            'Kar_örtülü_gün_GüneydoğuAnadolu',
-            'Kar_örtülü_gün_Karadeniz',
-            'Kar_örtülü_gün_Marmara',
-            'Kar_örtülü_gün_İçAnadolu',
-            'Çeyreklik_ramazan_gün_sayısı',
-            'Çeyreklik_tatil_sayısı',
-            'Çeyrekteki_gün_sayısı',
-            'Çeyrekteki_işgünü_sayısı']
-    scaling_list = col_df[(np.isin(col_df["ind_name"], test))]["name"].tolist()
-
-    # gün, sıcaklık verilerinin L0 lagi dışında tüm laglerini features dataframeinden atıyoruz.
-    # Kalan raw L0 verilerini normalize ediyoruz ve o şekilde features verisinde güncelliyoruz.
-    # elimination=col_df[np.isin(col_df["name"],elimination_list1,invert=True)]
-    # elimination_list2=elimination["name"].tolist()
-    # df_features=df_features[elimination_list2]
-    # col_df3=elimination[np.isin(elimination["ind_name"],test)]
-    # col_list=col_df3["name"].tolist()
-
-    max_abs_scaler = preprocessing.MaxAbsScaler()
-    df_features[scaling_list] = max_abs_scaler.fit_transform(df_features[scaling_list])
-
-    df_features["CHDD_all | diff_4Q | L0"] = df_features["CHDD_all | raw | L0"] - df_features[
-        "CHDD_all | raw | L0"].shift(4)
-    df_features["CHDD_enerjisa | diff_4Q | L0"] = df_features["CHDD_enerjisa | raw | L0"] - df_features[
-        "CHDD_enerjisa | raw | L0"].shift(4)
-
-    df_features["Kar_örtülü_gün_DoğuAnadolu | diff_4Q | L0"] = df_features["Kar_örtülü_gün_DoğuAnadolu | raw | L0"] - \
-                                                               df_features[
-                                                                   "Kar_örtülü_gün_DoğuAnadolu | raw | L0"].shift(4)
-    df_features["Kar_örtülü_gün_Ege | diff_4Q | L0"] = df_features["Kar_örtülü_gün_Ege | raw | L0"] - df_features[
-        "Kar_örtülü_gün_Ege | raw | L0"].shift(4)
-    df_features["Kar_örtülü_gün_GüneydoğuAnadolu | diff_4Q | L0"] = df_features[
-                                                                        "Kar_örtülü_gün_GüneydoğuAnadolu | raw | L0"] - \
-                                                                    df_features[
-                                                                        "Kar_örtülü_gün_GüneydoğuAnadolu | raw | L0"].shift(
-                                                                        4)
-    df_features["Kar_örtülü_gün_Karadeniz | diff_4Q | L0"] = df_features["Kar_örtülü_gün_Karadeniz | raw | L0"] - \
-                                                             df_features["Kar_örtülü_gün_Karadeniz | raw | L0"].shift(4)
-    df_features["Kar_örtülü_gün_Marmara | diff_4Q | L0"] = df_features["Kar_örtülü_gün_Marmara | raw | L0"] - \
-                                                           df_features["Kar_örtülü_gün_Marmara | raw | L0"].shift(4)
-    df_features["Kar_örtülü_gün_İçAnadolu | diff_4Q | L0"] = df_features["Kar_örtülü_gün_İçAnadolu | raw | L0"] - \
-                                                             df_features["Kar_örtülü_gün_İçAnadolu | raw | L0"].shift(4)
-
-    df_features["Çeyreklik_ramazan_gün_sayısı | diff_4Q | L0"] = df_features[
-                                                                     "Çeyreklik_ramazan_gün_sayısı | raw | L0"] - \
-                                                                 df_features[
-                                                                     "Çeyreklik_ramazan_gün_sayısı | raw | L0"].shift(4)
-    df_features["Çeyreklik_tatil_sayısı | diff_4Q | L0"] = df_features["Çeyreklik_tatil_sayısı | raw | L0"] - \
-                                                           df_features["Çeyreklik_tatil_sayısı | raw | L0"].shift(4)
-    df_features["Çeyrekteki_gün_sayısı | diff_4Q | L0"] = df_features["Çeyrekteki_gün_sayısı | raw | L0"] - df_features[
-        "Çeyrekteki_gün_sayısı | raw | L0"].shift(4)
-    df_features["Çeyrekteki_işgünü_sayısı | diff_4Q | L0"] = df_features["Çeyrekteki_işgünü_sayısı | raw | L0"] - \
-                                                             df_features["Çeyrekteki_işgünü_sayısı | raw | L0"].shift(4)
-
-    # %%
-
-    # sign & mgmt kuralı konmadı. max 3
-    target_dic = {'Sektör': [  # 'Çimento_tüketimi_ton' , #çimento ayrı yapılacak 2020_q2 si yok
-        # "Lastik_satışları_toplamı",
-        'Lastik_satışları_Replacement_tüketici_PSR',
-        'Lastik_satışları_Replacement_LT_TBR_LSR',
-        'Lastik_satışları_OE_tüketici_PSR',
-        'Lastik_satışları_OE_LT_TBR_LSR',
-        # 'Elektrik_talebi', #en son 2020_Q1 var
-        'Hayat_prim',
-        # "Kredi_bağlantılı_hayat_prim",
-        # "Serbest_hayat_prim",
-        'BES_katılımcı',
-        # "Hayat_dışı_toplam_prim",
-        'Hayat_dışı_motor_prim',
-        'Hayat_dışı_nonmotor_prim',
-        'Hayat_dışı_sağlık_prim'
-    ],
-        'target': [  # 'Çimento_tüketimi_ton | perc_4Q', #çimento ayrı yapılacak 2020_q2 si yok
-            # 'Lastik_satışları_toplamı | perc_4Q',
-            'Lastik_satışları_Replacement_tüketici_PSR | perc_4Q',
-            'Lastik_satışları_Replacement_LT_TBR_LSR | perc_4Q',
-            'Lastik_satışları_OE_tüketici_PSR | perc_4Q',
-            'Lastik_satışları_OE_LT_TBR_LSR | perc_4Q',
-            # 'Elektrik_talebi | perc_4Q', #en son 2020_Q1 var
-            'Hayat_prim | perc_4Q',
-            # 'Kredi_bağlantılı_hayat_prim | perc_4Q',
-            # 'Serbest_hayat_prim | perc_4Q',
-            'BES_katılımcı | perc_4Q',
-            # 'Hayat_dışı_toplam_prim | perc_4Q',
-            'Hayat_dışı_motor_prim | perc_4Q',
-            'Hayat_dışı_non_motor_prim | perc_4Q',
-            'Hayat_dışı_sağlık_prim | perc_4Q'
-        ]
-        ,
-        'path': [
-            # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-            # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-            # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-            # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-            # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//'
-        ]}
-
-    target_df = pd.DataFrame(data=target_dic)
-
-    d = {'Lag': ["L1-L2", "L1-L4"]}
-
-    no_of_features = (5, 10)
-
-    set = ["2011_Q1", "2011_Q2", "2011_Q3", "2011_Q4",
-           "2012_Q1", "2012_Q2", "2012_Q3", "2012_Q4",
-           "2013_Q1", "2013_Q2", "2013_Q3", "2013_Q4",
-           "2014_Q1", "2014_Q2", "2014_Q3", "2014_Q4",
-           "2015_Q1", "2015_Q2", "2015_Q3", "2015_Q4",
-           "2016_Q1", "2016_Q2", "2016_Q3", "2016_Q4",
-           "2017_Q1", "2017_Q2", "2017_Q3", "2017_Q4",
-           "2018_Q1", "2018_Q2", "2018_Q3", "2018_Q4",
-           "2019_Q1", "2019_Q2", "2019_Q3", "2019_Q4", "2020_Q1", "2020_Q2"]  # 3 data point daha ekledik
-
-    set_name = []
-    set_number = []
-    set_ = []#%%
-
-#%%
-
     def init(self):
 
         # verinin çekilmesi, verinin envanter formatında olması gerekiyor
-        df_features=pd.read_excel("IC_veri_envanteri_v26_140820.xlsx",sheet_name="features")
+        df_features=pd.read_excel("IC_veri_envanteri.xlsx",sheet_name="features")
         df_features.set_index("year_quarter",drop=True,inplace=True)
 
 
         #Oluşturulan data explanation tabi çekilir
         #bu excelde ind_name, sektör kolonları (çimento, lastik, enerji, sigorta_x) ve Lag olacak.
-        df_ind=pd.read_excel("IC_veri_envanteri_v26_140820.xlsx",sheet_name="envanter")
+        df_ind=pd.read_excel("IC_veri_envanteri.xlsx",sheet_name="envanter")
 
         #Oluşturulan hedef verisi çekilir ve isimlendirme yapılır
         #autoregressive yapmayacağız yalnızca perc4Q yu hedef olarak alıyoruz. Quarterı değişkenlerden çıkarıyoruz
-        target1=pd.read_excel("IC_veri_envanteri_v26_140820.xlsx",sheet_name="targets")
+        target1=pd.read_excel("IC_veri_envanteri.xlsx",sheet_name="targets")
         target1.set_index("year_quarter",drop=True,inplace=True)
 
 
@@ -821,24 +667,3 @@ class ModelHandler():
         select_first_x=10
 
         self.run(df_features,df_ind,target1,target_df ,d,no_of_features,sets_df,select_first_x,feature_type_set,scenario)
-
-        for i in range(0, 50, 1):
-            set_number.append(i)
-            set_name.append("set" + str(i))
-            set_temp = random.sample(set, 6)
-                # set_temp.extend(["2019_Q4"])
-            set_.append(set_temp)
-            sets = {"set_name": set_name, "no": set_number, "sets": set_}
-
-            feature_type_set = ["perc_1Q", "perc_4Q", "diff_1Q", "diff_4Q", "raw"]
-            # change_rate_1Q, change_rate_4Q yu da denemede ekleyeceksin
-            # raw sıcaklık ve gün verilerinden geliyor
-
-            sets_df = pd.DataFrame(data=sets)
-            sets_df.to_excel("setler_14082020_1004.xlsx", sheet_name="1")
-
-            scenario = "no"
-
-            select_first_x = 10
-
-            self.run(df_features, df_ind, target1, target_df, d, no_of_features, sets_df, select_first_x, feature_type_set, scenario)

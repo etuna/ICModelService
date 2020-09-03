@@ -17,9 +17,9 @@ def serviceHello():
 
 @app.route('/paramTest')
 def paramHello():
-    param = request.args.get('helloparam')
+   # param = request.args.get('helloparam')
     modelHandler.init()
-    return param
+    #return param
 
 @app.route('/printExcel')
 def readAndPrintExcelFile():
@@ -32,4 +32,6 @@ def readAndPrintExcelFile():
     return
 
 if __name__ == '__main__':
+    app.debug = True
     app.run(host='0.0.0.0', port=9999)
+
