@@ -2,8 +2,10 @@ from flask import Flask
 from flask import request
 app = Flask(__name__)
 from service.GreetingService import GreetingService
-
+from util.ModelHandler import ModelHandler
 greetingService = GreetingService()
+
+modelHandler = ModelHandler()
 
 @app.route('/')
 def hello_world():
@@ -16,6 +18,7 @@ def serviceHello():
 @app.route('/paramTest')
 def paramHello():
     param = request.args.get('helloparam')
+    modelHandler.init()
     return param
 
 @app.route('/printExcel')
