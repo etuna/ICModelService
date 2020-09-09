@@ -18,11 +18,15 @@ from service.GreetingService import GreetingService
 
 import warnings
 
+GreetingService = GreetingService()
+
 warnings.filterwarnings('ignore')
 
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
+
+
 class ModelHandler():
     # %%
 
@@ -75,7 +79,7 @@ class ModelHandler():
                                                              invert=True)))]
 
         # Model içine alınacak laglerin kararını veriyoruz (alınabilir olmasından bağımsız)
-        """
+        """"
         if Lag == "L1-L2":
             sets = ["L0", "L1", "L2"]
             df_feature_names4 = df_feature_names3[np.isin(df_feature_names3["lag_type"], sets)]
@@ -83,8 +87,8 @@ class ModelHandler():
             sets = ["L0", "L1", "L2", "L3", "L4"]
             df_feature_names4 = df_feature_names3[np.isin(df_feature_names3["lag_type"], sets)]
         """
-        df_feature_names4= GreetingService.lag_decision(df_feature_names3)
 
+        df_feature_names4 = GreetingService.lag_decision(df_feature_names3, Lag)
 
         # değişken tipi kararını başta veriyoruz
         df_feature_names5 = df_feature_names4[(np.isin(df_feature_names4["feature_type"], feature_set))]
@@ -105,7 +109,7 @@ class ModelHandler():
     def lasso_CV(self, df_new, model_name, missing, features, number_of_features, s, sets_df_, scenario):
 
         # senaryo yaratılmak istendiğinde buradan yeni değişken eklenebilir
-        """
+        """""
         if scenario == "yes":
             new_feat = pd.Series(["target_perc4Q", "Zincirlenmiş_GDP | perc_4Q | L0"  # ,
                                   # "Zincirlenmiş_GDP | perc_4Q | L1" hatta perc_1Q da eklenebilir
@@ -113,22 +117,20 @@ class ModelHandler():
         else:
             new_feat = pd.Series(["target_perc4Q"])
         """
-        new_feat = GreetingService.scenario_decision(scenario) #scenario is boolean!
-
+        new_feat = GreetingService.scenario_decision(scenario)
 
         features2 = features.append(new_feat)
         df_temp1 = df_new[model_name]
         df_temp2 = df_temp1[features2].copy(deep=True)
 
         # data preprocessing
-        """
+        """""
         new_index = missing.loc[missing["model_name"] == model_name, "index"].values[0]
         df_ = df_temp2.loc[((df_temp2.index > new_index) & (df_temp2.index < "2020_Q3")),]  # changed
         df_ = df_.replace([np.inf, -np.inf], np.nan)
         df_ = df_.dropna(axis=0)
         """
-        df_ = GreetingService.data_preprocessing(df_temp2)
-
+        df_ = GreetingService.data_preprocessing(df_temp2, missing, model_name)
 
         # target data, input data splittin
         X = df_.drop(["target_perc4Q"], axis=1)
@@ -142,7 +144,7 @@ class ModelHandler():
         X1_test = X[np.isin(X.index.values, sets_df_.iloc[s]["sets"])]
         y1_test = y[np.isin(y.index.values, sets_df_.iloc[s]["sets"])].values.reshape(-1, 1)
         """
-        X1, y1, X1_test, y1_test = GreetingService.train_test_splitting(X,y)
+        X1, y1, X1_test, y1_test = GreetingService.train_test_splitting(X, y, sets_df_, s)
 
         # lasso model fit
         lasso = Lasso(fit_intercept=False, max_iter=50000)
@@ -158,7 +160,7 @@ class ModelHandler():
         alpha = lasso_regressor.best_estimator_.alpha
 
         # getting predictions
-        """
+        """""
         pred_train = lasso_regressor.best_estimator_.predict(X1)
         y_lasso_train = pd.DataFrame(data=y1, columns=["Actual"])
         y_lasso_train["year_quarter"] = X1.index
@@ -174,8 +176,8 @@ class ModelHandler():
         pred_test2["year_quarter"] = X1_test.index
         y_lasso_test = pd.merge(y_lasso_test, pred_test2, how="left", right_on="year_quarter", left_on="year_quarter")
         """
-        y_lasso_train = GreetingService.getting_predictions(X1,y1)
-        y_lasso_test = GreetingService.getting_predictions(X1_test,y1_test)
+        y_lasso_train = GreetingService.getting_predictions(X1, y1, lasso_regressor)
+        y_lasso_test = GreetingService.getting_predictions(X1_test, y1_test, lasso_regressor)
 
         y_lasso_all = pd.concat([y_lasso_train, y_lasso_test], ignore_index=True)
 
@@ -194,27 +196,27 @@ class ModelHandler():
     def ridge_trial(self, df, missing, model_name, number_of_features, s, sets_df_, scenario):
 
         # Data preprocessing
-        """
+        """""
         new_index = missing.loc[missing["model_name"] == model_name, "index"].values[0]
         df_ = df[model_name].loc[((df[model_name].index > new_index) & (df[model_name].index < "2020_Q3")),]  # changed
         df_ = df_.replace([np.inf, -np.inf], np.nan)
         df_ = df_.dropna(axis=0)
         """
-        df_ = GreetingService.data_preprocessing(df[model_name])
+        df_ = GreetingService.data_preprocessing(df[model_name], missing, model_name)
 
         # target, input data spitting
         X = df_.drop(["target_perc4Q"], axis=1)
         y = df_["target_perc4Q"]
 
         # train test set splitting
-        """"
+        """
         X1 = X[np.isin(X.index.values, sets_df_.iloc[s]["sets"], invert=True)]
         y1 = y[np.isin(y.index.values, sets_df_.iloc[s]["sets"], invert=True)].values.reshape(-1, 1)
 
         X1_test = X[np.isin(X.index.values, sets_df_.iloc[s]["sets"])]
         y1_test = y[np.isin(y.index.values, sets_df_.iloc[s]["sets"])].values.reshape(-1, 1)
         """
-        X1,y1,X1_test,y1_test = GreetingService.train_test_splitting(X,y)
+        X1, y1, X1_test, y1_test = GreetingService.train_test_splitting(X, y, sets_df_, s)
 
         # recursive feature elimination model fit
         # model estimator is chosen as Ridge
@@ -238,8 +240,9 @@ class ModelHandler():
         # kritik olarak seçilen değişken isimlerinin features olarak kaydedilmesi (lasso modeline vermek üzere)
         features = rank2[rank2["ranking"] == 1]["col_name"]
 
-        y_lasso_all, lasso_coef_df, rmse_train, rmse_test, alpha_ = lasso_CV(df, model_name, missing, features,
-                                                                             number_of_features, s, sets_df_, scenario)
+        y_lasso_all, lasso_coef_df, rmse_train, rmse_test, alpha_ = self.lasso_CV(df, model_name, missing, features,
+                                                                                  number_of_features, s, sets_df_,
+                                                                                  scenario)
 
         return y_lasso_all, ranking, opt_number_of_features, rmse_train, rmse_test, lasso_coef_df, alpha_
 
@@ -272,11 +275,11 @@ class ModelHandler():
                  & (all_pred_["opt_no_of_features_Q"] == chosen.loc[i, "opt_no_of_features_Q"]))
                 , ["Actual", "Pred", "year_quarter"]]
             """
-            df = GreetingService.chosen_params(all_pred_)
+            df = GreetingService.chosen_params(all_pred_,chosen,i)
 
             print("Model name: %s" % chosen.loc[i,])
             print("Lasso Coeffs:")
-            """"
+            """""
             print(all_lasso_coeff_.loc[((all_lasso_coeff_["model_name"] == chosen.loc[i, "names"])
                                         & (all_lasso_coeff_["lasso_coeff"] != 0) &
                                         (all_lasso_coeff_["sets"] == chosen.loc[i, "sets"])
@@ -284,9 +287,12 @@ class ModelHandler():
                                            chosen.loc[i, "chosen_no_of_features_Q"])),
                                        ["feature", "lasso_coeff"]].sort_values(by="lasso_coeff", ascending=False))
             """
-            print(GreetingService.chosen_lasso(all_lasso_coeff_))
+            print(GreetingService.chosen_lasso(all_lasso_coeff_, chosen, i))
 
-            # print(df)
+            #df.sort_values(by=["year_quarter"], ascending=True, inplace=True)
+            #array = df["Pred"].to_numpy()
+            #print(array)
+            #print(df)
             """"
             df.sort_values(by=["year_quarter"], ascending=True, inplace=True)
             plt.figure(figsize=(15, 6))
@@ -297,7 +303,6 @@ class ModelHandler():
             plt.xticks(df["year_quarter"], rotation='vertical')
             plt.show()
             """
-
             GreetingService.plot_figure(df)
 
     # Fonksiyon: target+featurelardan oluşan dataframe listesini belirtilen quarterı,
@@ -306,7 +311,8 @@ class ModelHandler():
     # sonuçlarını verir
     # her model için
 
-    def comparison(self, df_, params_, missing_2, number_of_features, path, target_name, select_first_x, sets, scenario):
+    def comparison(self, df_, params_, missing_2, number_of_features, path, target_name, select_first_x, sets,
+                   scenario):
         df = df_.copy()
         params = params_.copy(deep=True)
         missing_2_ = missing_2.copy(deep=True)
@@ -349,7 +355,7 @@ class ModelHandler():
                 for k in number_of_features:
                     names.append(i)
 
-                    prediction, ranking, opt_no_of_features, rmse_train_, rmse_test_, lasso_coef_, alpha_ = ridge_trial(
+                    prediction, ranking, opt_no_of_features, rmse_train_, rmse_test_, lasso_coef_, alpha_ = self.ridge_trial(
                         df, missing_2_, i, k, s, sets_df, scenario)
 
                     # model varyasyonlarından gelen data kaydediliyor
@@ -425,7 +431,7 @@ class ModelHandler():
                         lambda x: -1 if x < -0.1 else (1 if x > 0.1 else 0))
                     pred_sign["pred_mgt"] = pred_sign["Pred"].apply(lambda x: -1 if x < -0.1 else (1 if x > 0.1 else 0))
                     pred_mgt_success.append((pred_sign[(pred_sign["Actual_mgt"] == pred_sign["pred_mgt"]) & (
-                                pred_sign["Actual_mgt"] != 0)]["Actual"].count()) / (
+                            pred_sign["Actual_mgt"] != 0)]["Actual"].count()) / (
                                                 pred_sign[pred_sign["Actual_mgt"] != 0]["Actual"].count()))
                     pred_sign_success.append(
                         (pred_sign[pred_sign["Actual_sign"] == pred_sign["pred_sign"]]["Actual"].count()) / (
@@ -460,7 +466,7 @@ class ModelHandler():
         all_pred.to_excel(path + target_name + "_predall.xlsx", index=False)
         all_lasso_coeff.to_excel(path + target_name + "_lassocoeff.xlsx", index=False)
 
-        model_analyses(results_, all_pred, all_lasso_coeff, select_first_x)
+        self.model_analyses(results_, all_pred, all_lasso_coeff, select_first_x)
 
     # run fonksiyonu input veriler ve parametreleri alarak kendi içinde diğer fonksiyonları çağırır
     # her hedef sektör, tahmin hedefi ve path için prediction döngüsünü çalıştırır ve sonuçları pathe kaydeder
@@ -482,8 +488,9 @@ class ModelHandler():
             # değişiklik laglere sahip setleri model_data_generation fonsiyonunda tek tek yaratır ve bir dictionary'e kaydeder
             df = {}
             for z in range(len(params.index)):
-                df[str(params.loc[z, "Lag"])] = model_data_generation(target_name, target_feature, df_features, df_ind,
-                                                                      target1, params, z, feature_type_set)
+                df[str(params.loc[z, "Lag"])] = self.model_data_generation(target_name, target_feature, df_features,
+                                                                           df_ind,
+                                                                           target1, params, z, feature_type_set)
 
             # dictionary'e kaydedilen datasetleri isimlendirir
             a_list = list(df.keys())
@@ -508,162 +515,182 @@ class ModelHandler():
             missing["col_name"] = col_name
             missing_2 = missing[missing["index"] < "2014_Q1"].groupby(by="model_name", as_index=False)["index"].max()
 
-            comparison(df, params, missing_2, no_of_features, path, target_name, select_first_x, sets, scenario)
+            self.comparison(df, params, missing_2, no_of_features, path, target_name, select_first_x, sets, scenario)
 
     def init(self):
 
         # verinin çekilmesi, verinin envanter formatında olması gerekiyor
-        df_features=pd.read_excel("IC_veri_envanteri.xlsx",sheet_name="features")
-        df_features.set_index("year_quarter",drop=True,inplace=True)
+        df_features = pd.read_excel("IC_veri_envanteri.xlsx", sheet_name="features")
+        df_features.set_index("year_quarter", drop=True, inplace=True)
 
+        # Oluşturulan data explanation tabi çekilir
+        # bu excelde ind_name, sektör kolonları (çimento, lastik, enerji, sigorta_x) ve Lag olacak.
+        df_ind = pd.read_excel("IC_veri_envanteri.xlsx", sheet_name="envanter")
 
-        #Oluşturulan data explanation tabi çekilir
-        #bu excelde ind_name, sektör kolonları (çimento, lastik, enerji, sigorta_x) ve Lag olacak.
-        df_ind=pd.read_excel("IC_veri_envanteri.xlsx",sheet_name="envanter")
+        # Oluşturulan hedef verisi çekilir ve isimlendirme yapılır
+        # autoregressive yapmayacağız yalnızca perc4Q yu hedef olarak alıyoruz. Quarterı değişkenlerden çıkarıyoruz
+        target1 = pd.read_excel("IC_veri_envanteri.xlsx", sheet_name="targets")
+        target1.set_index("year_quarter", drop=True, inplace=True)
 
-        #Oluşturulan hedef verisi çekilir ve isimlendirme yapılır
-        #autoregressive yapmayacağız yalnızca perc4Q yu hedef olarak alıyoruz. Quarterı değişkenlerden çıkarıyoruz
-        target1=pd.read_excel("IC_veri_envanteri.xlsx",sheet_name="targets")
-        target1.set_index("year_quarter",drop=True,inplace=True)
+        # gün ve sıcaklık verilerinin ham halinin normalize edilmesi ve ham verilerin bu şekilde güncellenmesi
+        collist1 = df_features.columns.tolist()
+        col_df = pd.DataFrame(data=collist1, columns=["name"])
+        col_df["ind_name"] = col_df["name"].apply(lambda x: x.split(" | ")[0])
+        col_df["lag_name"] = col_df["name"].apply(lambda x: x.split(" | ")[2])
+        test = ['CHDD_all',
+                'CHDD_enerjisa',
+                'Kar_örtülü_gün_DoğuAnadolu',
+                'Kar_örtülü_gün_Ege',
+                'Kar_örtülü_gün_GüneydoğuAnadolu',
+                'Kar_örtülü_gün_Karadeniz',
+                'Kar_örtülü_gün_Marmara',
+                'Kar_örtülü_gün_İçAnadolu',
+                'Çeyreklik_ramazan_gün_sayısı',
+                'Çeyreklik_tatil_sayısı',
+                'Çeyrekteki_gün_sayısı',
+                'Çeyrekteki_işgünü_sayısı']
+        scaling_list = col_df[(np.isin(col_df["ind_name"], test))]["name"].tolist()
 
-
-        #gün ve sıcaklık verilerinin ham halinin normalize edilmesi ve ham verilerin bu şekilde güncellenmesi
-        collist1=df_features.columns.tolist()
-        col_df=pd.DataFrame(data=collist1,columns=["name"])
-        col_df["ind_name"]=col_df["name"].apply(lambda x: x.split(" | ")[0])
-        col_df["lag_name"]=col_df["name"].apply(lambda x: x.split(" | ")[2])
-        test=['CHDD_all',
-        'CHDD_enerjisa',
-        'Kar_örtülü_gün_DoğuAnadolu',
-        'Kar_örtülü_gün_Ege',
-        'Kar_örtülü_gün_GüneydoğuAnadolu',
-        'Kar_örtülü_gün_Karadeniz',
-        'Kar_örtülü_gün_Marmara',
-        'Kar_örtülü_gün_İçAnadolu',
-        'Çeyreklik_ramazan_gün_sayısı',
-        'Çeyreklik_tatil_sayısı',
-        'Çeyrekteki_gün_sayısı',
-        'Çeyrekteki_işgünü_sayısı']
-        scaling_list=col_df[(np.isin(col_df["ind_name"],test))]["name"].tolist()
-
-
-
-        #gün, sıcaklık verilerinin L0 lagi dışında tüm laglerini features dataframeinden atıyoruz.
-        #Kalan raw L0 verilerini normalize ediyoruz ve o şekilde features verisinde güncelliyoruz.
-        #elimination=col_df[np.isin(col_df["name"],elimination_list1,invert=True)]
-        #elimination_list2=elimination["name"].tolist()
-        #df_features=df_features[elimination_list2]
-        #col_df3=elimination[np.isin(elimination["ind_name"],test)]
-        #col_list=col_df3["name"].tolist()
+        # gün, sıcaklık verilerinin L0 lagi dışında tüm laglerini features dataframeinden atıyoruz.
+        # Kalan raw L0 verilerini normalize ediyoruz ve o şekilde features verisinde güncelliyoruz.
+        # elimination=col_df[np.isin(col_df["name"],elimination_list1,invert=True)]
+        # elimination_list2=elimination["name"].tolist()
+        # df_features=df_features[elimination_list2]
+        # col_df3=elimination[np.isin(elimination["ind_name"],test)]
+        # col_list=col_df3["name"].tolist()
 
         max_abs_scaler = preprocessing.MaxAbsScaler()
         df_features[scaling_list] = max_abs_scaler.fit_transform(df_features[scaling_list])
 
+        df_features["CHDD_all | diff_4Q | L0"] = df_features["CHDD_all | raw | L0"] - df_features[
+            "CHDD_all | raw | L0"].shift(4)
+        df_features["CHDD_enerjisa | diff_4Q | L0"] = df_features["CHDD_enerjisa | raw | L0"] - df_features[
+            "CHDD_enerjisa | raw | L0"].shift(4)
 
-        df_features["CHDD_all | diff_4Q | L0"]=df_features["CHDD_all | raw | L0"]-df_features["CHDD_all | raw | L0"].shift(4)
-        df_features["CHDD_enerjisa | diff_4Q | L0"]=df_features["CHDD_enerjisa | raw | L0"]-df_features["CHDD_enerjisa | raw | L0"].shift(4)
+        df_features["Kar_örtülü_gün_DoğuAnadolu | diff_4Q | L0"] = df_features[
+                                                                       "Kar_örtülü_gün_DoğuAnadolu | raw | L0"] - \
+                                                                   df_features[
+                                                                       "Kar_örtülü_gün_DoğuAnadolu | raw | L0"].shift(4)
+        df_features["Kar_örtülü_gün_Ege | diff_4Q | L0"] = df_features["Kar_örtülü_gün_Ege | raw | L0"] - df_features[
+            "Kar_örtülü_gün_Ege | raw | L0"].shift(4)
+        df_features["Kar_örtülü_gün_GüneydoğuAnadolu | diff_4Q | L0"] = df_features[
+                                                                            "Kar_örtülü_gün_GüneydoğuAnadolu | raw | L0"] - \
+                                                                        df_features[
+                                                                            "Kar_örtülü_gün_GüneydoğuAnadolu | raw | L0"].shift(
+                                                                            4)
+        df_features["Kar_örtülü_gün_Karadeniz | diff_4Q | L0"] = df_features["Kar_örtülü_gün_Karadeniz | raw | L0"] - \
+                                                                 df_features[
+                                                                     "Kar_örtülü_gün_Karadeniz | raw | L0"].shift(4)
+        df_features["Kar_örtülü_gün_Marmara | diff_4Q | L0"] = df_features["Kar_örtülü_gün_Marmara | raw | L0"] - \
+                                                               df_features["Kar_örtülü_gün_Marmara | raw | L0"].shift(4)
+        df_features["Kar_örtülü_gün_İçAnadolu | diff_4Q | L0"] = df_features["Kar_örtülü_gün_İçAnadolu | raw | L0"] - \
+                                                                 df_features[
+                                                                     "Kar_örtülü_gün_İçAnadolu | raw | L0"].shift(4)
 
-        df_features["Kar_örtülü_gün_DoğuAnadolu | diff_4Q | L0"]=df_features["Kar_örtülü_gün_DoğuAnadolu | raw | L0"]-df_features["Kar_örtülü_gün_DoğuAnadolu | raw | L0"].shift(4)
-        df_features["Kar_örtülü_gün_Ege | diff_4Q | L0"]=df_features["Kar_örtülü_gün_Ege | raw | L0"]-df_features["Kar_örtülü_gün_Ege | raw | L0"].shift(4)
-        df_features["Kar_örtülü_gün_GüneydoğuAnadolu | diff_4Q | L0"]=df_features["Kar_örtülü_gün_GüneydoğuAnadolu | raw | L0"]-df_features["Kar_örtülü_gün_GüneydoğuAnadolu | raw | L0"].shift(4)
-        df_features["Kar_örtülü_gün_Karadeniz | diff_4Q | L0"]=df_features["Kar_örtülü_gün_Karadeniz | raw | L0"]-df_features["Kar_örtülü_gün_Karadeniz | raw | L0"].shift(4)
-        df_features["Kar_örtülü_gün_Marmara | diff_4Q | L0"]=df_features["Kar_örtülü_gün_Marmara | raw | L0"]-df_features["Kar_örtülü_gün_Marmara | raw | L0"].shift(4)
-        df_features["Kar_örtülü_gün_İçAnadolu | diff_4Q | L0"]=df_features["Kar_örtülü_gün_İçAnadolu | raw | L0"]-df_features["Kar_örtülü_gün_İçAnadolu | raw | L0"].shift(4)
+        df_features["Çeyreklik_ramazan_gün_sayısı | diff_4Q | L0"] = df_features[
+                                                                         "Çeyreklik_ramazan_gün_sayısı | raw | L0"] - \
+                                                                     df_features[
+                                                                         "Çeyreklik_ramazan_gün_sayısı | raw | L0"].shift(
+                                                                         4)
+        df_features["Çeyreklik_tatil_sayısı | diff_4Q | L0"] = df_features["Çeyreklik_tatil_sayısı | raw | L0"] - \
+                                                               df_features["Çeyreklik_tatil_sayısı | raw | L0"].shift(4)
+        df_features["Çeyrekteki_gün_sayısı | diff_4Q | L0"] = df_features["Çeyrekteki_gün_sayısı | raw | L0"] - \
+                                                              df_features["Çeyrekteki_gün_sayısı | raw | L0"].shift(4)
+        df_features["Çeyrekteki_işgünü_sayısı | diff_4Q | L0"] = df_features["Çeyrekteki_işgünü_sayısı | raw | L0"] - \
+                                                                 df_features[
+                                                                     "Çeyrekteki_işgünü_sayısı | raw | L0"].shift(4)
 
-        df_features["Çeyreklik_ramazan_gün_sayısı | diff_4Q | L0"]=df_features["Çeyreklik_ramazan_gün_sayısı | raw | L0"]-df_features["Çeyreklik_ramazan_gün_sayısı | raw | L0"].shift(4)
-        df_features["Çeyreklik_tatil_sayısı | diff_4Q | L0"]=df_features["Çeyreklik_tatil_sayısı | raw | L0"]-df_features["Çeyreklik_tatil_sayısı | raw | L0"].shift(4)
-        df_features["Çeyrekteki_gün_sayısı | diff_4Q | L0"]=df_features["Çeyrekteki_gün_sayısı | raw | L0"]-df_features["Çeyrekteki_gün_sayısı | raw | L0"].shift(4)
-        df_features["Çeyrekteki_işgünü_sayısı | diff_4Q | L0"]=df_features["Çeyrekteki_işgünü_sayısı | raw | L0"]-df_features["Çeyrekteki_işgünü_sayısı | raw | L0"].shift(4)
+        # %%
 
-        #%%
-
-        #sign & mgmt kuralı konmadı. max 3
-        target_dic = {'Sektör': [#'Çimento_tüketimi_ton' , #çimento ayrı yapılacak 2020_q2 si yok
-                                 #"Lastik_satışları_toplamı",
-                                 'Lastik_satışları_Replacement_tüketici_PSR',
-        'Lastik_satışları_Replacement_LT_TBR_LSR',
-                                 'Lastik_satışları_OE_tüketici_PSR',
-                                 'Lastik_satışları_OE_LT_TBR_LSR',
-                                 #'Elektrik_talebi', #en son 2020_Q1 var
-                                 'Hayat_prim',
-                                 #"Kredi_bağlantılı_hayat_prim",
-        #"Serbest_hayat_prim",
-                                 'BES_katılımcı',
-                                 #"Hayat_dışı_toplam_prim",
-                                 'Hayat_dışı_motor_prim',
-                                 'Hayat_dışı_nonmotor_prim',
-                                 'Hayat_dışı_sağlık_prim'
-                                ],
-             'target': [ #'Çimento_tüketimi_ton | perc_4Q', #çimento ayrı yapılacak 2020_q2 si yok
-                       # 'Lastik_satışları_toplamı | perc_4Q',
-                        'Lastik_satışları_Replacement_tüketici_PSR | perc_4Q',
-        'Lastik_satışları_Replacement_LT_TBR_LSR | perc_4Q',
-                        'Lastik_satışları_OE_tüketici_PSR | perc_4Q',
-                        'Lastik_satışları_OE_LT_TBR_LSR | perc_4Q',
-        #'Elektrik_talebi | perc_4Q', #en son 2020_Q1 var
-                        'Hayat_prim | perc_4Q',
-                        #'Kredi_bağlantılı_hayat_prim | perc_4Q',
-                        #'Serbest_hayat_prim | perc_4Q',
-        'BES_katılımcı | perc_4Q',
-                       # 'Hayat_dışı_toplam_prim | perc_4Q',
-                        'Hayat_dışı_motor_prim | perc_4Q',
-                        'Hayat_dışı_non_motor_prim | perc_4Q',
-        'Hayat_dışı_sağlık_prim | perc_4Q'
-                       ]
-                      ,
-            'path':[       # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-        #'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-        #'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-        #'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
-        #'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-        #'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
-            'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//'
+        # sign & mgmt kuralı konmadı. max 3
+        target_dic = {'Sektör': [  # 'Çimento_tüketimi_ton' , #çimento ayrı yapılacak 2020_q2 si yok
+            # "Lastik_satışları_toplamı",
+            'Lastik_satışları_Replacement_tüketici_PSR',
+            'Lastik_satışları_Replacement_LT_TBR_LSR',
+            'Lastik_satışları_OE_tüketici_PSR',
+            'Lastik_satışları_OE_LT_TBR_LSR',
+            # 'Elektrik_talebi', #en son 2020_Q1 var
+            'Hayat_prim',
+            # "Kredi_bağlantılı_hayat_prim",
+            # "Serbest_hayat_prim",
+            'BES_katılımcı',
+            # "Hayat_dışı_toplam_prim",
+            'Hayat_dışı_motor_prim',
+            'Hayat_dışı_nonmotor_prim',
+            'Hayat_dışı_sağlık_prim'
+        ],
+            'target': [  # 'Çimento_tüketimi_ton | perc_4Q', #çimento ayrı yapılacak 2020_q2 si yok
+                # 'Lastik_satışları_toplamı | perc_4Q',
+                'Lastik_satışları_Replacement_tüketici_PSR | perc_4Q',
+                'Lastik_satışları_Replacement_LT_TBR_LSR | perc_4Q',
+                'Lastik_satışları_OE_tüketici_PSR | perc_4Q',
+                'Lastik_satışları_OE_LT_TBR_LSR | perc_4Q',
+                # 'Elektrik_talebi | perc_4Q', #en son 2020_Q1 var
+                'Hayat_prim | perc_4Q',
+                # 'Kredi_bağlantılı_hayat_prim | perc_4Q',
+                # 'Serbest_hayat_prim | perc_4Q',
+                'BES_katılımcı | perc_4Q',
+                # 'Hayat_dışı_toplam_prim | perc_4Q',
+                'Hayat_dışı_motor_prim | perc_4Q',
+                'Hayat_dışı_non_motor_prim | perc_4Q',
+                'Hayat_dışı_sağlık_prim | perc_4Q'
+            ]
+            ,
+            'path': [
+                # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
+                # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
+                # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
+                # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Modeller_15072020_woscenario - v2//',
+                # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
+                # 'C://Users//pinar.yalcin//Desktop//Projects//IndustryCycles//Faz2//Faz2_13032020//Final IC_12082020//Model Selection & 1st Predictions//Modeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//',
+                'C://Users//ulas.eraslan//Desktop//Projects//Model Selection & 1st PredictionsModeller_14082020//'
             ]}
 
         target_df = pd.DataFrame(data=target_dic)
 
-        d = {'Lag':["L1-L2","L1-L4"]}
+        d = {'Lag': ["L1-L2", "L1-L4"]}
 
-        no_of_features=(5,10)
+        no_of_features = (5, 10)
 
-        set=["2011_Q1","2011_Q2","2011_Q3","2011_Q4",
-             "2012_Q1","2012_Q2","2012_Q3","2012_Q4",
-             "2013_Q1","2013_Q2","2013_Q3","2013_Q4",
-             "2014_Q1","2014_Q2","2014_Q3","2014_Q4",
-             "2015_Q1","2015_Q2","2015_Q3","2015_Q4",
-             "2016_Q1","2016_Q2","2016_Q3","2016_Q4",
-             "2017_Q1","2017_Q2","2017_Q3","2017_Q4",
-             "2018_Q1","2018_Q2","2018_Q3","2018_Q4",
-             "2019_Q1","2019_Q2","2019_Q3","2019_Q4","2020_Q1","2020_Q2"]#3 data point daha ekledik
+        set = ["2011_Q1", "2011_Q2", "2011_Q3", "2011_Q4",
+               "2012_Q1", "2012_Q2", "2012_Q3", "2012_Q4",
+               "2013_Q1", "2013_Q2", "2013_Q3", "2013_Q4",
+               "2014_Q1", "2014_Q2", "2014_Q3", "2014_Q4",
+               "2015_Q1", "2015_Q2", "2015_Q3", "2015_Q4",
+               "2016_Q1", "2016_Q2", "2016_Q3", "2016_Q4",
+               "2017_Q1", "2017_Q2", "2017_Q3", "2017_Q4",
+               "2018_Q1", "2018_Q2", "2018_Q3", "2018_Q4",
+               "2019_Q1", "2019_Q2", "2019_Q3", "2019_Q4", "2020_Q1", "2020_Q2"]  # 3 data point daha ekledik
 
-        set_name=[]
-        set_number=[]
-        set_=[]
-        for i in range(0,50,1):
+        set_name = []
+        set_number = []
+        set_ = []
+        for i in range(0, 50, 1):
             set_number.append(i)
-            set_name.append("set"+str(i))
-            set_temp=random.sample(set,6)
-            #set_temp.extend(["2019_Q4"])
+            set_name.append("set" + str(i))
+            set_temp = random.sample(set, 6)
+            # set_temp.extend(["2019_Q4"])
             set_.append(set_temp)
-        sets={"set_name":set_name,"no":set_number,"sets":set_}
+        sets = {"set_name": set_name, "no": set_number, "sets": set_}
 
-        feature_type_set=["perc_1Q","perc_4Q","diff_1Q","diff_4Q","raw"]
-        #change_rate_1Q, change_rate_4Q yu da denemede ekleyeceksin
-        #raw sıcaklık ve gün verilerinden geliyor
+        feature_type_set = ["perc_1Q", "perc_4Q", "diff_1Q", "diff_4Q", "raw"]
+        # change_rate_1Q, change_rate_4Q yu da denemede ekleyeceksin
+        # raw sıcaklık ve gün verilerinden geliyor
 
-        sets_df=pd.DataFrame(data=sets)
-        sets_df.to_excel("setler_14082020_1004.xlsx",sheet_name="1")
+        sets_df = pd.DataFrame(data=sets)
+        sets_df.to_excel("setler_14082020_1004.xlsx", sheet_name="1")
 
-        scenario=0
+        scenario = 0
 
-        select_first_x=10
+        select_first_x = 10
 
-        self.run(df_features,df_ind,target1,target_df ,d,no_of_features,sets_df,select_first_x,feature_type_set,scenario)
+        self.run(df_features, df_ind, target1, target_df, d, no_of_features, sets_df, select_first_x, feature_type_set,
+                 scenario)
